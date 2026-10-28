@@ -47,6 +47,8 @@ export type User = {
   userId?: number; // optional because guest user doesn't have a user id
   username: string;
   loginCount?: number;
+  canPreviewRoles?: boolean;
+  rolePreview?: { id: number; name: string } | null;
 };
 
 export type UserRoles = Record<string, [string, string][]>;

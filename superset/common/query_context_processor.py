@@ -406,6 +406,10 @@ class QueryContextProcessor:
         """
         Returns a QueryObject cache key for objects in self.queries
         """
+        from superset.security.role_preview import get_preview_role
+
+        if role := get_preview_role():
+            kwargs["role_preview"] = role.id
         datasource = self._qc_datasource
         extra_cache_keys = datasource.get_extra_cache_keys(query_obj.to_dict())
 
@@ -796,6 +800,11 @@ class QueryContextProcessor:
         key_prefix = "qc-"
         cache_dict = self._query_context.cache_values.copy()
         cache_dict.update(extra)
+
+        from superset.security.role_preview import get_preview_role
+
+        if role := get_preview_role():
+            cache_dict["role_preview"] = role.id
 
         return generate_cache_key(cache_dict, key_prefix)
 

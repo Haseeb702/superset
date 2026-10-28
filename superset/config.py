@@ -672,6 +672,8 @@ CURRENCIES = ["USD", "EUR", "GBP", "INR", "MXN", "JPY", "CNY"]
 #   - deprecated: Will be removed in a future major release
 
 DEFAULT_FEATURE_FLAGS: dict[str, bool] = {
+    # Admin-only, read-only role preview for local evaluation.
+    "ENABLE_ROLE_PREVIEW": False,
     # =================================================================
     # IN DEVELOPMENT
     # =================================================================

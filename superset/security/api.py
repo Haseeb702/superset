@@ -17,7 +17,7 @@
 import logging
 from typing import Any
 
-from flask import current_app, request, Response
+from flask import current_app, g, request, Response, session
 from flask_appbuilder import expose
 from flask_appbuilder.api import rison as parse_rison, safe, SQLAInterface
 from flask_appbuilder.api.schemas import get_list_schema
@@ -154,10 +154,97 @@ class RolesResponseSchema(PermissiveSchema):
 guest_token_create_schema = GuestTokenCreateSchema()
 
 
+class RolePreviewSchema(Schema):
+    """Select a persisted role without changing any user's assigned roles."""
+
+    role_id = fields.Integer(required=True, validate=validate.Range(min=1))
+
+
 class SecurityRestApi(BaseSupersetApi):
     resource_name = "security"
     allow_browser_login = True
     openapi_spec_tag = "Security"
+
+    @expose("/role_preview/", methods=("GET", "POST", "DELETE"))
+    @protect()
+    @safe
+    @permission_name("read")
+    def role_preview(self) -> Response:
+        """Inspect, enter, or leave an Admin-only read-only role preview.
+        ---
+        get:
+          summary: List roles and the selected role preview
+          responses:
+            200:
+              description: Preview state and available roles
+            403:
+              $ref: '#/components/responses/403'
+        post:
+          summary: Start or change role preview
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required: [role_id]
+                  properties:
+                    role_id:
+                      type: integer
+          responses:
+            200:
+              description: Preview selection saved in the authenticated session
+            400:
+              $ref: '#/components/responses/400'
+            403:
+              $ref: '#/components/responses/403'
+        delete:
+          summary: Exit role preview
+          responses:
+            200:
+              description: Admin context restored
+            403:
+              $ref: '#/components/responses/403'
+        """
+        from superset.security.role_preview import (
+            can_preview_roles,
+            resolve_preview_role,
+            SESSION_KEY,
+        )
+
+        if not can_preview_roles():
+            return self.response_403()
+        if request.method == "DELETE":
+            session.pop(SESSION_KEY, None)
+            return self.response(200, result=None)
+        if request.method == "POST":
+            if not request.is_json:
+                return self.response_400(message="A JSON role selection is required.")
+            try:
+                selection = RolePreviewSchema().load(request.get_json())
+            except ValidationError as ex:
+                return self.response_400(message=ex.messages)
+            role = db.session.get(Role, selection["role_id"])
+            if role is None or role.name == current_app.config["AUTH_ROLE_ADMIN"]:
+                return self.response_400(message="Select an existing non-Admin role.")
+            session[SESSION_KEY] = {
+                "user_id": g.user.id,
+                "role_id": role.id,
+                "role_name": role.name,
+            }
+            return self.response(200, result={"id": role.id, "name": role.name})
+        role = resolve_preview_role()
+        roles = (
+            db.session.query(Role)
+            .filter(Role.name != current_app.config["AUTH_ROLE_ADMIN"])
+            .order_by(Role.name)
+            .all()
+        )
+        return self.response(
+            200,
+            result={"id": role.id, "name": role.name} if role else None,
+            roles=[{"id": item.id, "name": item.name} for item in roles],
+        )
 
     @expose("/csrf_token/", methods=("GET",))
     @event_logger.log_this

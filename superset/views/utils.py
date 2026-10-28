@@ -130,11 +130,22 @@ def bootstrap_user_data(user: User, include_perms: bool = False) -> dict[str, An
             "loginCount": user.login_count,
         }
 
+    from superset.security.role_preview import can_preview_roles, get_preview_role
+
+    if can_preview_roles(user):
+        role = get_preview_role()
+        payload["canPreviewRoles"] = True
+        payload["rolePreview"] = {"id": role.id, "name": role.name} if role else None
+
     if include_perms:
         roles, permissions = get_permissions(user)
         payload["roles"] = roles
         payload["permissions"] = permissions
-        payload["groups"] = [group.name for group in getattr(user, "groups", [])]
+        payload["groups"] = (
+            []
+            if get_preview_role()
+            else [group.name for group in getattr(user, "groups", [])]
+        )
 
     return payload
 
@@ -152,6 +163,17 @@ def get_permissions(
 
     data_permissions = defaultdict(set)
     roles_permissions = security_manager.get_user_roles_permissions(user)
+    from superset.security.role_preview import get_preview_role, READ_PERMISSIONS
+
+    if get_preview_role():
+        roles_permissions = {
+            name: [
+                permission
+                for permission in permissions
+                if permission[0] in READ_PERMISSIONS
+            ]
+            for name, permissions in roles_permissions.items()
+        }
     for _, permissions in roles_permissions.items():  # noqa: F402
         for permission in permissions:
             if permission[0] in ("datasource_access", "database_access"):

@@ -44,6 +44,12 @@ def get_user_subject_ids_subquery(user_id: int) -> CompoundSelect:
         assoc_user_role,
     )
 
+    from superset.security.role_preview import get_preview_role, preview_applies_to
+
+    role = get_preview_role()
+    if role is not None and preview_applies_to(user_id):
+        return union_all(select(Subject.id).where(Subject.role_id == role.id))
+
     user_subj = select(Subject.id).where(Subject.user_id == user_id)
 
     role_subj = (

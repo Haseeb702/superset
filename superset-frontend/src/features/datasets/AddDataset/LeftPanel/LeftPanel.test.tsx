@@ -16,303 +16,112 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import fetchMock from 'fetch-mock';
 import {
   render,
   screen,
   userEvent,
   waitFor,
 } from 'spec/helpers/testing-library';
-import LeftPanel from 'src/features/datasets/AddDataset/LeftPanel';
-import { exampleDataset } from 'src/features/datasets/AddDataset/DatasetPanel/fixtures';
+import fetchMock from 'fetch-mock';
+import type { TableBrowserProps } from 'src/SqlLab/components/TableExploreTree';
+import LeftPanel from '.';
+import { DatasetActionType } from '../types';
 
-const databasesEndpoint = 'glob:*/api/v1/database/?q*';
-const schemasEndpoint = 'glob:*/api/v1/database/*/schemas*';
-const tablesEndpoint = 'glob:*/api/v1/database/*/tables/?q*';
+jest.mock('src/components/DatabaseSelector', () => ({
+  DatabaseSelector: () => <span>Database selector</span>,
+}));
+jest.mock('src/SqlLab/components/TableExploreTree', () => ({
+  __esModule: true,
+  TableBrowser: (props: TableBrowserProps) => (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          props.onPreviewTable?.({ schema: 'public', table_name: 'orders' })
+        }
+      >
+        Preview orders
+      </button>
+      <button
+        type="button"
+        disabled={!props.onSelectionChange}
+        onClick={() =>
+          props.onSelectionChange?.([
+            { schema: 'public', table_name: 'orders' },
+            { schema: 'sales', table_name: 'orders' },
+          ])
+        }
+      >
+        Check tables
+      </button>
+      <button
+        type="button"
+        disabled={props.creatingDataset}
+        onClick={() =>
+          props.onCreateDataset?.({ schema: 'sales', table_name: 'orders' })
+        }
+      >
+        Create orders
+      </button>
+    </>
+  ),
+}));
 
-beforeEach(() => {
-  fetchMock.get(databasesEndpoint, {
-    count: 2,
-    description_columns: {},
-    ids: [1, 2],
-    label_columns: {
-      allow_file_upload: 'Allow Csv Upload',
-      allow_ctas: 'Allow Ctas',
-      allow_cvas: 'Allow Cvas',
-      allow_dml: 'Allow DDL and DML',
-      allow_multi_schema_metadata_fetch: 'Allow Multi Schema Metadata Fetch',
-      allow_run_async: 'Allow Run Async',
-      allows_cost_estimate: 'Allows Cost Estimate',
-      allows_subquery: 'Allows Subquery',
-      allows_virtual_table_explore: 'Allows Virtual Table Explore',
-      disable_data_preview: 'Disables SQL Lab Data Preview',
-      disable_drill_to_detail: 'Disable Drill To Detail',
-      backend: 'Backend',
-      changed_on: 'Changed On',
-      changed_on_delta_humanized: 'Changed On Delta Humanized',
-      'created_by.first_name': 'Created By First Name',
-      'created_by.last_name': 'Created By Last Name',
-      database_name: 'Database Name',
-      explore_database_id: 'Explore Database Id',
-      expose_in_sqllab: 'Expose In Sqllab',
-      force_ctas_schema: 'Force Ctas Schema',
-      id: 'Id',
-    },
-    list_columns: [
-      'allow_file_upload',
-      'allow_ctas',
-      'allow_cvas',
-      'allow_dml',
-      'allow_multi_schema_metadata_fetch',
-      'allow_run_async',
-      'allows_cost_estimate',
-      'allows_subquery',
-      'allows_virtual_table_explore',
-      'disable_data_preview',
-      'disable_drill_to_detail',
-      'backend',
-      'changed_on',
-      'changed_on_delta_humanized',
-      'created_by.first_name',
-      'created_by.last_name',
-      'database_name',
-      'explore_database_id',
-      'expose_in_sqllab',
-      'force_ctas_schema',
-      'id',
-    ],
-    list_title: 'List Database',
-    order_columns: [
-      'allow_file_upload',
-      'allow_dml',
-      'allow_run_async',
-      'changed_on',
-      'changed_on_delta_humanized',
-      'created_by.first_name',
-      'database_name',
-      'expose_in_sqllab',
-    ],
-    result: [
-      {
-        allow_file_upload: false,
-        allow_ctas: false,
-        allow_cvas: false,
-        allow_dml: false,
-        allow_multi_schema_metadata_fetch: false,
-        allow_run_async: false,
-        allows_cost_estimate: null,
-        allows_subquery: true,
-        allows_virtual_table_explore: true,
-        disable_data_preview: false,
-        disable_drill_to_detail: false,
-        backend: 'postgresql',
-        changed_on: '2021-03-09T19:02:07.141095',
-        changed_on_delta_humanized: 'a day ago',
-        created_by: null,
-        database_name: 'test-postgres',
-        explore_database_id: 1,
-        expose_in_sqllab: true,
-        force_ctas_schema: null,
-        id: 1,
-      },
-      {
-        allow_csv_upload: false,
-        allow_ctas: false,
-        allow_cvas: false,
-        allow_dml: false,
-        allow_multi_schema_metadata_fetch: false,
-        allow_run_async: false,
-        allows_cost_estimate: null,
-        allows_subquery: true,
-        allows_virtual_table_explore: true,
-        disable_data_preview: false,
-        disable_drill_to_detail: false,
-        backend: 'mysql',
-        changed_on: '2021-03-09T19:02:07.141095',
-        changed_on_delta_humanized: 'a day ago',
-        created_by: null,
-        database_name: 'test-mysql',
-        explore_database_id: 1,
-        expose_in_sqllab: true,
-        force_ctas_schema: null,
-        id: 2,
-      },
-    ],
-  });
-
-  fetchMock.get(schemasEndpoint, {
-    result: ['information_schema', 'public'],
-  });
-
-  fetchMock.get(tablesEndpoint, {
-    count: 3,
-    result: [
-      { value: 'Sheet1', type: 'table', extra: null },
-      { value: 'Sheet2', type: 'table', extra: null },
-      { value: 'Sheet3', type: 'table', extra: null },
-    ],
-  });
-});
-
+const props = {
+  setDataset: jest.fn(),
+  onPreviewTable: jest.fn(),
+  onDatasetCreated: jest.fn(),
+  onBusyChange: jest.fn(),
+  dataset: { db: { id: 1, database_name: 'examples' }, catalog: 'main' },
+};
 afterEach(() => {
-  fetchMock.clearHistory().removeRoutes();
+  jest.clearAllMocks();
+  fetchMock.removeRoutes().clearHistory();
 });
 
-const mockFun = jest.fn();
-
-test('should render', async () => {
-  render(<LeftPanel setDataset={mockFun} />, {
-    useRedux: true,
+test('clicking a table preserves the single-table creation workflow', async () => {
+  render(<LeftPanel {...props} />, { useRedux: true });
+  await userEvent.click(screen.getByText('Preview orders'));
+  expect(props.onPreviewTable).toHaveBeenCalledWith({
+    schema: 'public',
+    table_name: 'orders',
   });
-  expect(
-    await screen.findByText(/Select database or type to search databases/i),
-  ).toBeInTheDocument();
-});
-
-test('should render schema selector, database selector container, and selects', async () => {
-  render(<LeftPanel setDataset={mockFun} />, { useRedux: true });
-
-  expect(
-    await screen.findByText(/Select database or type to search databases/i),
-  ).toBeVisible();
-
-  const databaseSelect = screen.getByRole('combobox', {
-    name: 'Select database or type to search databases',
-  });
-  const schemaSelect = screen.getByRole('combobox', {
-    name: 'Select schema',
-  });
-  expect(databaseSelect).toBeInTheDocument();
-  expect(schemaSelect).toBeInTheDocument();
-});
-
-test('does not render blank state if there is nothing selected', async () => {
-  render(<LeftPanel setDataset={mockFun} />, { useRedux: true });
-
-  expect(
-    await screen.findByText(/Select database or type to search databases/i),
-  ).toBeInTheDocument();
-  const emptyState = screen.queryByRole('img', { name: /empty/i });
-  expect(emptyState).not.toBeInTheDocument();
-});
-
-test('renders list of options when user clicks on schema', async () => {
-  render(<LeftPanel setDataset={mockFun} dataset={exampleDataset[0]} />, {
-    useRedux: true,
-  });
-
-  // Click 'test-postgres' database to access schemas
-  const databaseSelect = screen.getByRole('combobox', {
-    name: 'Select database or type to search databases',
-  });
-  await userEvent.click(databaseSelect);
-  expect(await screen.findByText('test-postgres')).toBeInTheDocument();
-  await userEvent.click(screen.getByText('test-postgres'));
-
-  // Schema select will be automatically populated if there is only one schema
-  const schemaSelect = screen.getByRole('combobox', {
-    name: /select schema/i,
-  });
-  await waitFor(() => {
-    expect(schemaSelect).toBeEnabled();
+  expect(props.setDataset).toHaveBeenCalledWith({
+    type: DatasetActionType.SelectTableReferences,
+    payload: [{ schema: 'public', table_name: 'orders' }],
   });
 });
 
-test('searches for a table name', async () => {
-  render(<LeftPanel setDataset={mockFun} dataset={exampleDataset[0]} />, {
-    useRedux: true,
-  });
-
-  // Click 'test-postgres' database to access schemas
-  const databaseSelect = screen.getByRole('combobox', {
-    name: /select database or type to search databases/i,
-  });
-  await userEvent.click(databaseSelect);
-  await userEvent.click(await screen.findByText('test-postgres'));
-
-  const schemaSelect = screen.getByRole('combobox', {
-    name: /select schema/i,
-  });
-  const tableSelect = screen.getByRole('combobox', {
-    name: /select table or type to search tables/i,
-  });
-
-  await waitFor(() => expect(schemaSelect).toBeEnabled());
-
-  // Click 'public' schema to access tables
-  await userEvent.click(schemaSelect);
-  await userEvent.click(screen.getByText('public'));
-  await waitFor(() =>
-    expect(fetchMock.callHistory.calls(tablesEndpoint).length).toBe(1),
+test('checkbox mode is opt-in and table previews do not replace checked tables', async () => {
+  render(<LeftPanel {...props} />, { useRedux: true });
+  expect(screen.getByText('Check tables')).toBeDisabled();
+  await userEvent.click(
+    screen.getByRole('checkbox', { name: 'Select multiple tables' }),
   );
-  await userEvent.click(tableSelect);
-
-  await waitFor(() => {
-    expect(
-      screen.queryByRole('option', { name: /Sheet1/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('option', { name: /Sheet2/i }),
-    ).toBeInTheDocument();
+  await userEvent.click(screen.getByText('Check tables'));
+  expect(props.setDataset).toHaveBeenLastCalledWith({
+    type: DatasetActionType.SelectTableReferences,
+    payload: [
+      { schema: 'public', table_name: 'orders' },
+      { schema: 'sales', table_name: 'orders' },
+    ],
   });
-
-  await userEvent.type(tableSelect, 'Sheet3');
-
-  await waitFor(() => {
-    expect(screen.queryByText(/Sheet1/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Sheet2/i)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('option', { name: /Sheet3/i }),
-    ).toBeInTheDocument();
-  });
+  props.setDataset.mockClear();
+  await userEvent.click(screen.getByText('Preview orders'));
+  expect(props.setDataset).not.toHaveBeenCalled();
 });
 
-test('renders a warning icon when a table name has a preexisting dataset', async () => {
-  render(
-    <LeftPanel
-      setDataset={mockFun}
-      dataset={exampleDataset[0]}
-      datasetNames={['Sheet2']}
-    />,
-    {
-      useRedux: true,
-    },
-  );
-
-  // Click 'test-postgres' database to access schemas
-  const databaseSelect = screen.getByRole('combobox', {
-    name: /select database or type to search databases/i,
+test('creates a dataset from the table action without opening a chart', async () => {
+  fetchMock.post('glob:*/api/v1/dataset/', { id: 10 });
+  render(<LeftPanel {...props} />, { useRedux: true });
+  await userEvent.click(screen.getByText('Create orders'));
+  await waitFor(() => expect(props.onDatasetCreated).toHaveBeenCalled());
+  const call = fetchMock.callHistory.lastCall('glob:*/api/v1/dataset/');
+  expect(JSON.parse(String(call?.options.body))).toEqual({
+    database: 1,
+    catalog: 'main',
+    schema: 'sales',
+    table_name: 'orders',
   });
-  await userEvent.click(databaseSelect);
-  await userEvent.click(await screen.findByText('test-postgres'));
-
-  const schemaSelect = screen.getByRole('combobox', {
-    name: /select schema/i,
-  });
-  const tableSelect = screen.getByRole('combobox', {
-    name: /select table or type to search tables/i,
-  });
-
-  await waitFor(() => expect(schemaSelect).toBeEnabled());
-
-  // Warning icon should not show yet
-  expect(
-    screen.queryByRole('img', { name: 'warning' }),
-  ).not.toBeInTheDocument();
-
-  // Click 'public' schema to access tables
-  await userEvent.click(schemaSelect);
-  await userEvent.click(screen.getByText('public'));
-  await userEvent.click(tableSelect);
-
-  await waitFor(() => {
-    expect(
-      screen.queryByRole('option', { name: /Sheet2/i }),
-    ).toBeInTheDocument();
-  });
-
-  await userEvent.type(tableSelect, 'Sheet2');
-
-  // Sheet2 should now show the warning icon
-  expect(screen.getByRole('img', { name: 'warning' })).toBeInTheDocument();
+  expect(props.onBusyChange).toHaveBeenLastCalledWith(false);
 });

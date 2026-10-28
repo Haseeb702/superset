@@ -2660,6 +2660,17 @@ class SupersetSecurityManager(  # pylint: disable=too-many-public-methods
             .join(self.role_model)
         )
 
+        from superset.security.role_preview import get_preview_role
+
+        if role := get_preview_role():
+            return {
+                item.name
+                for item in base_query.filter(
+                    self.role_model.id == role.id,
+                    self.permission_model.name == permission_name,
+                ).all()
+            }
+
         # Guest users (embedded dashboards) have is_anonymous=False but no
         # database identity, so querying by user_id returns nothing. Instead,
         # resolve permissions directly from the roles attached to the guest
@@ -4483,11 +4494,15 @@ class SupersetSecurityManager(  # pylint: disable=too-many-public-methods
         from superset.models.dashboard import Dashboard
         from superset.models.slice import Slice
         from superset.models.sql_lab import Query
-        from superset.utils.core import shortid
 
         # Extension hook: bypass all permission checks if an external system
         # (e.g. folder permissions) grants access to this resource.
-        if bypass := current_app.config.get("EXTRA_RAISE_FOR_ACCESS_BYPASS"):
+        from superset.security.role_preview import get_preview_role
+        from superset.utils.core import shortid
+
+        if not get_preview_role() and (
+            bypass := current_app.config.get("EXTRA_RAISE_FOR_ACCESS_BYPASS")
+        ):
             if bypass(
                 user_id=get_user_id(),
                 dashboard=dashboard,
@@ -5115,10 +5130,31 @@ class SupersetSecurityManager(  # pylint: disable=too-many-public-methods
     def get_user_roles(self, user: Optional[User] = None) -> list[Role]:
         if not user:
             user = g.user
+        from superset.security.role_preview import get_preview_role, preview_applies_to
+
+        role = get_preview_role()
+        if role is not None and preview_applies_to(getattr(user, "id", None)):
+            return [role]
         if user.is_anonymous:
             public_role = get_conf().get("AUTH_ROLE_PUBLIC")
             return [self.get_public_role()] if public_role else []
         return super().get_user_roles(user)
+
+    def _has_view_access(
+        self, user: object, permission_name: str, view_name: str
+    ) -> bool:
+        """Limit the selected role to read capabilities while previewing."""
+        from superset.security.role_preview import (
+            preview_applies_to,
+            READ_PERMISSIONS,
+        )
+
+        if (
+            preview_applies_to(getattr(user, "id", None))
+            and permission_name not in READ_PERMISSIONS
+        ):
+            return False
+        return super()._has_view_access(user, permission_name, view_name)
 
     def get_guest_rls_filters(
         self, dataset: "BaseDatasource | Explorable"

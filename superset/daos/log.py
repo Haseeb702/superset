@@ -38,6 +38,11 @@ class LogDAO(BaseDAO[Log]):
         page: int,
         page_size: int,
     ) -> list[dict[str, Any]]:
+        from superset.security.role_preview import get_preview_role
+
+        # A role has no personal history; never display the acting Admin's history.
+        if get_preview_role() is not None:
+            return []
         user_id = get_user_id()
         has_subject_title = or_(
             and_(

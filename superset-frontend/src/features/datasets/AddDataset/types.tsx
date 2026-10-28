@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import type { TableReference } from 'src/SqlLab/components/TableExploreTree/types';
 import type { DatabaseObject } from 'src/components';
 
 export enum DatasetActionType {
@@ -23,6 +24,8 @@ export enum DatasetActionType {
   SelectCatalog,
   SelectSchema,
   SelectTable,
+  SelectTables,
+  SelectTableReferences,
   ChangeDataset,
 }
 
@@ -33,6 +36,8 @@ export interface DatasetObject {
   schema?: string | null;
   dataset_name: string;
   table_name?: string | null;
+  table_names?: string[];
+  selected_tables?: TableReference[];
   explore_url?: string;
 }
 
@@ -46,6 +51,11 @@ export type Schema = {
 };
 
 export type DSReducerActionType =
+  | { type: DatasetActionType.SelectTableReferences; payload: TableReference[] }
+  | {
+      type: DatasetActionType.SelectTables;
+      payload: string[];
+    }
   | {
       type: DatasetActionType.SelectDatabase;
       payload: Partial<DatasetObject>;

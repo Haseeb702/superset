@@ -115,6 +115,7 @@ class CeleryConfig:
 CELERY_CONFIG = CeleryConfig
 
 FEATURE_FLAGS = {
+    "ENABLE_ROLE_PREVIEW": True,
     "ALERT_REPORTS": True,
     "DATASET_FOLDERS": True,
     "ENABLE_EXTENSIONS": True,

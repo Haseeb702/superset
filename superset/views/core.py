@@ -756,10 +756,14 @@ class Superset(BaseSupersetView):
         if not g.user or not get_user_id():
             return redirect_to_login()
 
-        if welcome_dashboard_id := (
-            db.session.query(UserAttribute.welcome_dashboard_id)
-            .filter_by(user_id=get_user_id())
-            .scalar()
+        from superset.security.role_preview import get_preview_role
+
+        if not get_preview_role() and (
+            welcome_dashboard_id := (
+                db.session.query(UserAttribute.welcome_dashboard_id)
+                .filter_by(user_id=get_user_id())
+                .scalar()
+            )
         ):
             return self.dashboard(dashboard_id_or_slug=str(welcome_dashboard_id))
 

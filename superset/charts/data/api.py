@@ -386,8 +386,11 @@ class ChartDataRestApi(ChartRestApi):
         :meth:`QueryContextProcessor.get_cache_timeout` also folds in config
         fallbacks and the async minimum TTL that the scheduled task later applies.
         """
+        from superset.security.role_preview import get_preview_role
+
         return (
-            bool(json_body.get("async_mode"))
+            get_preview_role() is None
+            and bool(json_body.get("async_mode"))
             and is_feature_enabled("GLOBAL_ASYNC_QUERIES")
             and query_context.result_format == ChartDataResultFormat.JSON
             and query_context.result_type == ChartDataResultType.FULL

@@ -28,7 +28,12 @@ import type { SelectValue } from '@superset-ui/core/components';
 import { t } from '@apache-superset/core/translation';
 import { SupersetError } from '@superset-ui/core';
 import { styled } from '@apache-superset/core/theme';
-import { CertifiedBadge, Select } from '@superset-ui/core/components';
+import {
+  Button,
+  CertifiedBadge,
+  Flex,
+  Select,
+} from '@superset-ui/core/components';
 import { DatabaseSelector, ErrorMessageWithStackTrace } from 'src/components';
 import { Icons } from '@superset-ui/core/components/Icons';
 import type { DatabaseObject } from 'src/components/DatabaseSelector/types';
@@ -104,6 +109,8 @@ interface TableSelectorProps {
     schema?: string,
   ) => void;
   tableSelectMode?: 'single' | 'multiple';
+  showSelectAll?: boolean;
+  maxTableSelection?: number;
   customTableOptionLabelRenderer?: (table: Table) => JSX.Element;
 }
 
@@ -167,6 +174,8 @@ const TableSelector: FunctionComponent<TableSelectorProps> = ({
   catalog,
   schema,
   tableSelectMode = 'single',
+  showSelectAll = false,
+  maxTableSelection = 100,
   tableValue = undefined,
   onTableSelectChange,
   customTableOptionLabelRenderer,
@@ -340,6 +349,31 @@ const TableSelector: FunctionComponent<TableSelectorProps> = ({
       <>
         <StyledFormLabel>{label}</StyledFormLabel>
         {renderSelectRow(select, refreshLabel)}
+        {showSelectAll && tableSelectMode === 'multiple' && (
+          <Flex justify="space-between" align="center" gap="small">
+            <Button
+              disabled={
+                disabled ||
+                loadingTables ||
+                tableOptions.length === 0 ||
+                Boolean(hasMoreTables) ||
+                tableOptions.length > maxTableSelection
+              }
+              tooltip={
+                tableOptions.length > maxTableSelection || hasMoreTables
+                  ? t(
+                      'Select tables individually, up to %s per batch.',
+                      maxTableSelection,
+                    )
+                  : undefined
+              }
+              onClick={() => internalTableChange(tableOptions)}
+            >
+              {t('Select all')}
+            </Button>
+            <span>{t('Maximum %s per batch', maxTableSelection)}</span>
+          </Flex>
+        )}
         {hasMoreTables && !disabled && (
           <div className="table-length">
             {t('Some tables are not shown. Refine your search.')}

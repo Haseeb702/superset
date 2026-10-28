@@ -38,6 +38,7 @@ import {
 } from 'src/types/bootstrapTypes';
 import { datasetsLabel } from 'src/features/semanticLayers/label';
 import RightMenu from './RightMenu';
+import RolePreview from './RolePreview';
 import { NAVBAR_MENU_POPUP_OFFSET } from './commonMenuData';
 
 interface MenuProps {
@@ -414,82 +415,85 @@ export function Menu({
     return <>{link}</>;
   };
   return (
-    <StyledHeader
-      as="nav"
-      className="top"
-      id="main-menu"
-      aria-label={t('Main navigation')}
-    >
-      <StyledRow>
-        {/* Mobile: left placeholder for future icon */}
-        {isMobile && <Col xs={4} />}
-        <StyledCol
-          md={16}
-          xs={isMobile ? 16 : 24}
-          css={
-            isMobile &&
-            css`
-              justify-content: center;
-            `
-          }
-        >
-          {!brand.hide_logo && (
-            <Tooltip
-              id="brand-tooltip"
-              placement="bottomLeft"
-              title={brand.tooltip}
-              arrow={{ pointAtCenter: true }}
-            >
-              {renderBrand()}
-            </Tooltip>
-          )}
-          {!brand.hide_logo && brand.text && (
-            <StyledBrandText>
-              <span>{brand.text}</span>
-            </StyledBrandText>
-          )}
-          {/* Consumption mode: hide nav items on mobile (drawer holds them) */}
-          {!isMobile && (
-            <StyledMainNav
-              mode={isMd ? 'horizontal' : 'inline'}
-              data-test="navbar-top"
-              className="main-nav"
-              selectedKeys={activeTabs}
-              disabledOverflow
-              items={menu.map(item => {
-                const props = {
-                  ...item,
-                  label: t(item.label),
-                  isFrontendRoute: isFrontendRoute(item.url),
-                  childs: item.childs?.map(c => {
-                    if (typeof c === 'string') {
-                      return c;
-                    }
+    <>
+      <StyledHeader
+        as="nav"
+        className="top"
+        id="main-menu"
+        aria-label={t('Main navigation')}
+      >
+        <StyledRow>
+          {/* Mobile: left placeholder for future icon */}
+          {isMobile && <Col xs={4} />}
+          <StyledCol
+            md={16}
+            xs={isMobile ? 16 : 24}
+            css={
+              isMobile &&
+              css`
+                justify-content: center;
+              `
+            }
+          >
+            {!brand.hide_logo && (
+              <Tooltip
+                id="brand-tooltip"
+                placement="bottomLeft"
+                title={brand.tooltip}
+                arrow={{ pointAtCenter: true }}
+              >
+                {renderBrand()}
+              </Tooltip>
+            )}
+            {!brand.hide_logo && brand.text && (
+              <StyledBrandText>
+                <span>{brand.text}</span>
+              </StyledBrandText>
+            )}
+            {/* Consumption mode: hide nav items on mobile (drawer holds them) */}
+            {!isMobile && (
+              <StyledMainNav
+                mode={isMd ? 'horizontal' : 'inline'}
+                data-test="navbar-top"
+                className="main-nav"
+                selectedKeys={activeTabs}
+                disabledOverflow
+                items={menu.map(item => {
+                  const props = {
+                    ...item,
+                    label: t(item.label),
+                    isFrontendRoute: isFrontendRoute(item.url),
+                    childs: item.childs?.map(c => {
+                      if (typeof c === 'string') {
+                        return c;
+                      }
 
-                    return {
-                      ...c,
-                      isFrontendRoute: isFrontendRoute(c.url),
-                    };
-                  }),
-                };
+                      return {
+                        ...c,
+                        isFrontendRoute: isFrontendRoute(c.url),
+                      };
+                    }),
+                  };
 
-                return buildMenuItem(props);
-              })}
+                  return buildMenuItem(props);
+                })}
+              />
+            )}
+          </StyledCol>
+          <Col md={8} xs={isMobile ? 4 : 24}>
+            <RightMenu
+              align={isMd || isMobile ? 'flex-end' : 'flex-start'}
+              settings={settings}
+              navbarRight={navbarRight}
+              isFrontendRoute={isFrontendRoute}
+              environmentTag={environmentTag}
+              menu={menu}
             />
-          )}
-        </StyledCol>
-        <Col md={8} xs={isMobile ? 4 : 24}>
-          <RightMenu
-            align={isMd || isMobile ? 'flex-end' : 'flex-start'}
-            settings={settings}
-            navbarRight={navbarRight}
-            isFrontendRoute={isFrontendRoute}
-            environmentTag={environmentTag}
-            menu={menu}
-          />
-        </Col>
-      </StyledRow>
-    </StyledHeader>
+          </Col>
+        </StyledRow>
+      </StyledHeader>
+      <RolePreview />
+    </>
   );
 }
 

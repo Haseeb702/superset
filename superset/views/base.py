@@ -546,7 +546,7 @@ def _soft_delete_conf() -> dict[str, Any]:
 
 @cache_manager.cache.memoize(timeout=60)
 def cached_common_bootstrap_data(  # pylint: disable=unused-argument
-    user_id: int | None, locale: str | None
+    user_id: int | None, locale: str | None, preview_role_id: int | None = None
 ) -> dict[str, Any]:
     """Common data always sent to the client
 
@@ -645,7 +645,7 @@ def cached_common_bootstrap_data(  # pylint: disable=unused-argument
         "extra_theme_tokens": app.config["EXTRA_THEME_TOKENS"],
         "menu_data": menu_data(g.user),
         "pdf_compression_level": app.config["PDF_COMPRESSION_LEVEL"],
-        "user_subject_id": _get_user_subject_id(user_id),
+        "user_subject_id": None if preview_role_id else _get_user_subject_id(user_id),
         "user_subjects": _get_user_subjects(user_id),
     }
 
@@ -659,7 +659,14 @@ def common_bootstrap_payload() -> dict[str, Any]:
     locale = get_locale()
     # Convert locale to string for proper cache key hashing
     locale_str = str(locale) if locale else None
-    payload = dict(cached_common_bootstrap_data(utils.get_user_id(), locale_str))
+    from superset.security.role_preview import get_preview_role
+
+    role = get_preview_role()
+    payload = dict(
+        cached_common_bootstrap_data(utils.get_user_id(), locale_str, role.id)
+        if role
+        else cached_common_bootstrap_data(utils.get_user_id(), locale_str)
+    )
     frontend_config = payload.get("conf")
     if isinstance(frontend_config, dict) and frontend_config.get("WEBSOCKET_ENABLE"):
         payload["conf"] = {

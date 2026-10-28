@@ -17,7 +17,11 @@
  * under the License.
  */
 import { render, screen } from 'spec/helpers/testing-library';
-import AddDataset from 'src/pages/DatasetCreation';
+import AddDataset, { datasetReducer } from 'src/pages/DatasetCreation';
+import {
+  DatasetActionType,
+  DatasetObject,
+} from 'src/features/datasets/AddDataset/types';
 
 const mockHistoryPush = jest.fn();
 jest.mock('react-router-dom', () => ({
@@ -44,4 +48,52 @@ describe('AddDataset', () => {
 
     expect(blankeStateImgs.length).toBe(1);
   });
+});
+
+test('stores multiple tables and clears selections when the schema changes', () => {
+  const selected = datasetReducer(null, {
+    type: DatasetActionType.SelectTables,
+    payload: ['customers', 'orders'],
+  }) as DatasetObject;
+  expect(selected.table_names).toEqual(['customers', 'orders']);
+  expect(selected.table_name).toBeNull();
+  expect(
+    datasetReducer(selected, {
+      type: DatasetActionType.SelectSchema,
+      payload: { name: 'schema', value: 'other' },
+    }),
+  ).toMatchObject({ schema: 'other', table_names: [], table_name: null });
+});
+
+test('keeps the single-table preview available for a one-table selection', () => {
+  expect(
+    datasetReducer(null, {
+      type: DatasetActionType.SelectTables,
+      payload: ['customers'],
+    }),
+  ).toMatchObject({ table_names: ['customers'], table_name: 'customers' });
+});
+
+test('keeps schema-qualified table selections and clears them when the connection changes', () => {
+  const selected = datasetReducer(null, {
+    type: DatasetActionType.SelectTableReferences,
+    payload: [
+      { schema: 'public', table_name: 'orders' },
+      { schema: 'sales', table_name: 'orders' },
+    ],
+  }) as DatasetObject;
+  expect(selected.selected_tables).toHaveLength(2);
+  expect(selected.table_name).toBeNull();
+  expect(
+    datasetReducer(selected, {
+      type: DatasetActionType.SelectDatabase,
+      payload: { db: { id: 2, database_name: 'other' } },
+    }),
+  ).toMatchObject({ selected_tables: [], table_names: [], table_name: null });
+  expect(
+    datasetReducer(selected, {
+      type: DatasetActionType.SelectTableReferences,
+      payload: [{ schema: 'sales', table_name: 'orders' }],
+    }),
+  ).toMatchObject({ schema: 'sales', table_name: 'orders' });
 });
